@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: k8s-quiz
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - app.yaml
+images:
+  - name: ghcr.io/johanbriys/k8s-quiz
+    newTag: 83550feb26466cddb937fc85690ba43b92669cf8   # V1 : mis à jour à la main

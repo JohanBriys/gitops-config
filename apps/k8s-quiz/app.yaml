@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: quiz-config
+data:
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: quiz
+  DB_USER: quiz
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quiz
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: quiz }
+  template:
+    metadata:
+      labels: { app: quiz }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      initContainers:
+        # attend que Postgres accepte les connexions avant de lancer l'appli
+        - name: wait-for-db
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -h postgres -p 5432; do echo 'waiting for db'; sleep 2; done"]
+          securityContext:
+            runAsUser: 70   # utilisateur postgres de l'image alpine
+      containers:
+        - name: quiz
+          image: ghcr.io/johanbriys/k8s-quiz   # tag géré par kustomization.yaml
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef: { name: quiz-config }
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: quiz-secrets, key: db-password }
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: quiz-secrets, key: secret-key }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8000 }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: quiz
+spec:
+  type: NodePort
+  selector: { app: quiz }
+  ports:
+    - port: 80
+      targetPort: 8000
+      nodePort: 30080

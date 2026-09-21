@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: k8s-quiz
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/JohanBriys/gitops-config.git   # adapter si besoin
+    targetRevision: HEAD
+    path: apps/k8s-quiz
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: k8s-quiz
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
